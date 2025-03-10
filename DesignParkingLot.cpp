@@ -1,115 +1,87 @@
 #include <iostream>
-#include <queue>
-#include <unordered_map>
 #include <vector>
-#include <cmath>
-
+#include <unordered_map>
 using namespace std;
 
 // Enum for vehicle types
 enum class VehicleType { CAR, BIKE, TRUCK };
 
-// Structure for a parking spot with coordinates
-struct ParkingSpot {
+// Vehicle Class
+class Vehicle {
+public:
+    string licensePlate;
+    VehicleType type;
+
+    Vehicle(string plate, VehicleType vType){
+        this->licensePlate = plate;
+        this->type = vType;
+    }
+};
+
+// Parking Spot Class
+class ParkingSpot {
+public:
     int id;
-    int row, col;  // Coordinates
     VehicleType type;
     bool isOccupied;
 
-    ParkingSpot(int spotId, int r, int c, VehicleType vType)
-        : id(spotId), row(r), col(c), type(vType), isOccupied(false) {}
-
-    // Calculate distance from entrance (0,0)
-    double distanceFromEntrance() const {
-        return sqrt(row * row + col * col);
-    }
-
-    // Custom comparator for priority queue (Min-Heap)
-    bool operator>(const ParkingSpot& other) const {
-        return distanceFromEntrance() > other.distanceFromEntrance();
-    }
+    ParkingSpot(int spotId, VehicleType vType) : id(spotId), type(vType), isOccupied(false) {}
 };
 
 // Parking Lot Class
 class ParkingLot {
 private:
-    priority_queue<ParkingSpot, vector<ParkingSpot>, greater<ParkingSpot>> availableSpots;
-    unordered_map<int, ParkingSpot> allSpots;
+    vector<ParkingSpot> spots;
     unordered_map<string, int> vehicleToSpot;
 
 public:
-    ParkingLot(vector<ParkingSpot> spots) {
-        for (const auto& spot : spots) {
-            availableSpots.push(spot);
-            allSpots[spot.id] = spot;
-        }
+    ParkingLot(int carSpots, int bikeSpots, int truckSpots) {
+        int id = 1;
+        for (int i = 0; i < carSpots; i++) spots.push_back(ParkingSpot(id++, VehicleType::CAR));
+        for (int i = 0; i < bikeSpots; i++) spots.push_back(ParkingSpot(id++, VehicleType::BIKE));
+        for (int i = 0; i < truckSpots; i++) spots.push_back(ParkingSpot(id++, VehicleType::TRUCK));
     }
 
-    void suggestNearestSpot(VehicleType type) {
-        priority_queue<ParkingSpot, vector<ParkingSpot>, greater<ParkingSpot>> tempQueue = availableSpots;
-        while (!tempQueue.empty()) {
-            ParkingSpot spot = tempQueue.top();
-            tempQueue.pop();
-            if (!spot.isOccupied && spot.type == type) {
-                cout << "Nearest available spot for your vehicle: ID " << spot.id
-                     << " at (" << spot.row << ", " << spot.col << ")\n";
-                return;
-            }
-        }
-        cout << "No available spots for your vehicle type.\n";
-    }
-
-    bool parkVehicle(string licensePlate, VehicleType type) {
-        priority_queue<ParkingSpot, vector<ParkingSpot>, greater<ParkingSpot>> tempQueue;
-        bool parked = false;
-
-        while (!availableSpots.empty()) {
-            ParkingSpot spot = availableSpots.top();
-            availableSpots.pop();
-            if (!spot.isOccupied && spot.type == type) {
+    bool parkVehicle(Vehicle vehicle) {
+        for (ParkingSpot &spot : spots) {
+            if (!spot.isOccupied && spot.type == vehicle.type) {
                 spot.isOccupied = true;
-                vehicleToSpot[licensePlate] = spot.id;
-                allSpots[spot.id] = spot;
-                cout << "Vehicle " << licensePlate << " parked at spot ID " << spot.id << "\n";
-                parked = true;
+                vehicleToSpot[vehicle.licensePlate] = spot.id;
+                cout << "Vehicle " << vehicle.licensePlate << " parked at spot " << spot.id << endl;
+                return true;
             }
-            tempQueue.push(spot);
         }
-        availableSpots = tempQueue;
-        return parked;
+        cout << "No available spot for " << vehicle.licensePlate << endl;
+        return false;
     }
 
     void removeVehicle(string licensePlate) {
         if (vehicleToSpot.find(licensePlate) != vehicleToSpot.end()) {
             int spotId = vehicleToSpot[licensePlate];
-            allSpots[spotId].isOccupied = false;
-            availableSpots.push(allSpots[spotId]);
-            vehicleToSpot.erase(licensePlate);
-            cout << "Vehicle " << licensePlate << " removed from spot " << spotId << "\n";
-        } else {
-            cout << "Vehicle not found in parking lot.\n";
+            for (ParkingSpot &spot : spots) {
+                if (spot.id == spotId) {
+                    spot.isOccupied = false;
+                    vehicleToSpot.erase(licensePlate);
+                    cout << "Vehicle " << licensePlate << " removed from spot " << spotId << endl;
+                    return;
+                }
+            }
         }
+        cout << "Vehicle not found.\n";
     }
 };
 
 // Main Function
 int main() {
-    vector<ParkingSpot> spots = {
-        ParkingSpot(1, 0, 1, VehicleType::CAR),
-        ParkingSpot(2, 1, 1, VehicleType::CAR),
-        ParkingSpot(3, 2, 1, VehicleType::BIKE),
-        ParkingSpot(4, 1, 2, VehicleType::TRUCK)
-    };
+    ParkingLot lot(2, 2, 1); // 2 Car spots, 2 Bike spots, 1 Truck spot
 
-    ParkingLot lot(spots);
+    Vehicle car1("ABC123", VehicleType::CAR);
+    Vehicle bike1("BIKE567", VehicleType::BIKE);
 
-    lot.suggestNearestSpot(VehicleType::CAR);
-    lot.parkVehicle("ABC123", VehicleType::CAR);
-    lot.suggestNearestSpot(VehicleType::BIKE);
-    lot.parkVehicle("BIKE567", VehicleType::BIKE);
+    lot.parkVehicle(car1);
+    lot.parkVehicle(bike1);
 
     lot.removeVehicle("ABC123");
-    lot.suggestNearestSpot(VehicleType::CAR);
 
     return 0;
 }
